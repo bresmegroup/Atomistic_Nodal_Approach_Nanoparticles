@@ -96,3 +96,15 @@ for index,i in enumerate(indexes):
 df_particle_border['DisplacementX'] = dtdx
 df_particle_border['DisplacementY'] = dtdy
 df_particle_border['DisplacementZ'] = dtdz
+
+
+dot_dis = np.multiply(df_particle_border[['DisplacementX', 'DisplacementY', 'DisplacementZ']].values
+                      , df_particle_border[['DisplacementX', 'DisplacementY', 'DisplacementZ']].values)
+dis_norm = np.sqrt(array([np.sum(i) for i in dot_dis]))
+df_particle_border['dis_norm'] = dis_norm
+#ylim(0,11)
+
+a = np.multiply(df_particle_border[['fx', 'fy', 'fz']].values, df_particle_border[['DisplacementX', 'DisplacementY', 'DisplacementZ']].values)
+rflux_norm = array([np.sum(i) for i in a]) / df_particle_border.dis_norm
+df_particle_border['rflux_dt'] = -rflux_norm
+df_particle_border['g_dt'] = df_particle_border.rflux_dt / df_particle_border.dT /df_particle_border.volume
