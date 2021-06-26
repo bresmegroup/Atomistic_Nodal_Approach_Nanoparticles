@@ -4,6 +4,7 @@ Python Code for Processing LAMMPS Data generated for two data types: LAMMPS traj
 ![3_janus_rods](https://user-images.githubusercontent.com/40763563/123518175-493d5100-d6d7-11eb-834b-f228ee0ac928.jpg)
 LAMMPS Package used to generate Data:
 - LAMMPS 19MAR20
+
 Python Pacakages Needed:
 - Scipy 1.6.0
 - Dask 2.3.0
