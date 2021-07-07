@@ -12,13 +12,15 @@ import fnmatch
 ### python dump_file_averaging.py base_case_file general_case_file directory 
 ### directory can be edited below if necessary
 ### for instance:
-### python dump_file_averaging.py profile_grid_cool_fluid.dat0 profile_grid_cool_fluid.dat # directory
+### python dump_file_averaging.py profile_grid_cool_fluid.dat0 profile_grid_cool_fluid.dat 
 
 import sys
 args = sys.argv[1:] 
 base_case = args[0] # USER input required here, to state the base case of file name of file to iterate over
 file_name = args[1] # USER input required here, to state what the general name of the files are for averaging
-directory = args[2] # USER input required here, to state the directory being used
+
+
+# Currently, base cases are as follows, to make it more efficient, minimise to 1 argument only
 
 df0 = pd.read_csv(base_case # USER INPUT base_case used here
                   ,skiprows=[0,1,3], delim_whitespace=True) # base case, for columns parsing, base case is .dat0, out of 1000 files
@@ -26,14 +28,17 @@ df0 = pd.read_csv(base_case # USER INPUT base_case used here
 columns_l = df0.columns[1:] # obtain columns, ignoring the '#' symbol in the datafile, raise error if format incorrect
 del df0 # free up memory
 
+directory = os.path.dirname(file_name)
+fn = os.path.basename(file_name)
+
 file_no = len(fnmatch.filter(os.listdir(directory)
-                         , '{}*'.format(file_name))
+                         , '{}*'.format(fn))) #added a bracket
 
 print('No. of files:  ' + str(file_no))
 
 print('Base case loaded')
 
-df = dd.read_csv(directory + file_name + r'*'# USER INPUT HERE improved
+df = dd.read_csv(file_name + r'*'# USER INPUT HERE improved
                 ,skiprows=[0,1,3], delim_whitespace=True) # use dask to process all files of interest 'profile_grid_cool_fluid.dat'
 
 print('All dataframes loaded')
