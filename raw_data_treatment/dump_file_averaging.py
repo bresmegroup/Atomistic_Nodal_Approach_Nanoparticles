@@ -9,15 +9,15 @@ import dask.dataframe as dd
 import fnmatch 
 
 ### To use this file, make sure the above libraries are installed and use 
-### python dump_file_averaging.py base_case_file general_case_file directory 
+### python dump_file_averaging.py base_case_file
 ### directory can be edited below if necessary
 ### for instance:
-### python dump_file_averaging.py profile_grid_cool_fluid.dat0 profile_grid_cool_fluid.dat 
+### python dump_file_averaging.py profile_grid_cool_fluid.dat0
 
 import sys
 args = sys.argv[1:] 
 base_case = args[0] # USER input required here, to state the base case of file name of file to iterate over
-file_name = args[1] # USER input required here, to state what the general name of the files are for averaging
+file_name = base_case[:-1*len(re.split('dat',base_case)[-1])] # remove last few digits in base case to get general case
 
 
 # Currently, base cases are as follows, to make it more efficient, minimise to 1 argument only
@@ -62,4 +62,3 @@ print('Standard deviation Calculated')
 df_both = pd.concat([df_mean, df_std], axis = 1)
 df_both.to_csv('df_both_parallel_grid_{}.csv'.format(file_name), sep = ' ') # output file
 print('Job saved and finished')
-os.chdir(r'../')
