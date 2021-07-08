@@ -1,0 +1,107 @@
+# Nanoparticle in a thermal gradient.
+
+units             lj
+atom_style        atomic
+dimension         3
+
+# Define some variables for the simulation.
+
+variable      radius    equal 26
+variable box_size equal 4^(1/3)*(20+v_radius)
+variable radiush equal v_radius-2
+variable radiusc equal v_radius+7
+
+variable          rand1    equal 22101
+variable          rand2    equal 4628
+variable          job    equal 0
+
+variable run0      equal 10
+variable run1      equal 100000
+variable run2      equal 50000
+variable run3      equal 50000
+
+# Define the two temperatures in the system.
+
+variable          t1 equal 0.92
+variable          t2 equal 0.72
+
+# Create the simulation box.
+
+region            box      block 0 $(v_box_size) 0 $(v_box_size) 0 $(v_box_size) units box
+create_box        2 box
+
+# Create a high-density fcc lattice of atoms.
+
+lattice           fcc 1.0
+create_atoms      1 region box
+
+# Define two regions: one for particle and one for the fluid. Also define groups.
+
+region            particle block $(v_box_size/2-v_radius/2) $(v_box_size/2+v_radius/2) $(v_box_size/2-v_radius/2) $(v_box_size/2+v_radius/2) $(v_box_size/2-v_radius/2) $(v_box_size/2+v_radius/2)  units box
+region            fluid    block $(v_box_size/2-v_radius/2) $(v_box_size/2+v_radius/2) $(v_box_size/2-v_radius/2) $(v_box_size/2+v_radius/2) $(v_box_size/2-v_radius/2) $(v_box_size/2+v_radius/2) units box side out
+
+group             particle region particle
+group             fluid subtract all particle
+
+# We will adjust the density of the fluid to 0.8 by randomly deleting some of the atoms.
+
+delete_atoms      porosity fluid 0.2 $(v_rand1)
+
+# Change the atom type of the particle atoms.
+
+set               group particle type 2
+set               group fluid type 1
+# Define the masses.
+
+mass              1     1.0
+mass              2     1.0
+
+# Create initial velocities.
+
+velocity          all create 0.9 $(v_rand2)
+
+# Define the force-field.
+
+pair_style        lj/cut 2.5
+pair_coeff        1 1    1.0    1.0
+pair_coeff        1 2    0.79   1.0
+pair_coeff        2 2    10.0   1.0
+
+# These are the fixes that define the simulation.
+# We will first run in NVT to equilibrate the temperature.
+# Removing angular momentum of the particle keeps it in the centre of the simulation box.
+# We will also remove the linear momentum of the whole system.
+
+fix               1 all nvt temp 0.9 0.9 0.5
+fix               2 particle momentum 1 angular linear 1 1 1
+fix               3 all momentum 1 linear 1 1 1
+
+# This is how you can define some variables.
+# Check the density of the fluid.
+
+variable          volume_fluid   equal vol-v_radius^3
+variable          density_fluid  equal count(fluid)/v_volume_fluid
+
+# By defining thermo_style, you can customize the output of the log file,
+# and call some of the variables you have previously defined.
+
+thermo_style      custom step temp epair etotal press v_density_fluid
+thermo_modify     norm no
+thermo            100
+
+# This is how you can define a file for the trajectory, which you can visualize
+# in VMD, Ovito, PyMol.
+
+# Define some of the parameters of the simulation before the run.
+
+timestep          0.0025
+neighbor          0.3 bin
+neigh_modify      delay 0 every 1 check yes
+dump              1 all custom 5 md.lammpstrj2 id type x y z #v_T
+write_restart restart.initial
+run               $(v_run0)
+
+#dump		  1 all custom 5 md.lammpstrj2 id type x y z #v_T
+
+
+
