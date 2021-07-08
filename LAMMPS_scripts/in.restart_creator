@@ -15,7 +15,7 @@ variable          rand1    equal 22101
 variable          rand2    equal 4628
 variable          job    equal 0
 
-variable run0      equal 10
+variable run0      equal 0
 variable run1      equal 100000
 variable run2      equal 50000
 variable run3      equal 50000
