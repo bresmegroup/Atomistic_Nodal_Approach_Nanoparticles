@@ -12,6 +12,9 @@ Python Pacakages Needed:
 - SKlearn 0.24.1
 - Pandas 1.1.3
 
+Data Visualisation
+- Ovito 3.5.2
+
 ## Part 1: Processing the Data
 Two data types are generated from the sample LAMMPS script given, which are processed using the DASK and Pandas in the raw_data_treatment folder. The first is the cuboid grid-based DUMPS data format, which is used to process the fluid's thermodynamics and positional information. This is done through [dump_file_averaging.py](https://github.com/PanoptoSalad/Atomistic_Nodal_Approach_Conductance/blob/main/raw_data_treatment/dump_file_averaging.py). The second is the per-atom averaging conducted for the relatively stationary atoms of the NP, which are treated as nodesm whose physical properties are averaged on a per atom basis for the simulation. To process the data from the simulation, [traj_averaging.py](https://github.com/PanoptoSalad/Atomistic_Nodal_Approach_Conductance/blob/main/raw_data_treatment/traj_averaging.py) can be used
 
