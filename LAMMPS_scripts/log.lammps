@@ -1,0 +1,361 @@
+LAMMPS (19 Mar 2020)
+# Nanoparticle in a thermal gradient.
+read_restart restart.initial
+  restoring atom style atomic from restart
+  orthogonal box = (0 0 0) to (73.0204 73.0204 73.0204)
+  2 by 2 by 3 MPI processor grid
+  restoring pair style lj/cut from restart
+  314653 atoms
+  read_restart CPU = 0.115786 secs
+# Define some variables for the simulation.
+
+#units             lj
+#atom_style        atomic
+#dimension         3
+
+# Define some variables for the simulation.
+
+variable      radius    equal 26
+variable box_size equal 4^(1/3)*(20+v_radius)
+variable radiush equal v_radius-4
+variable radiusc equal v_radius+14
+
+variable          rand1    equal 22101
+variable          rand2    equal 4628
+variable          job    equal 0
+
+variable run1      equal 100
+variable run2      equal 5
+variable run3      equal 5
+
+# Define the two temperatures in the system.
+
+variable          t1 equal 0.92
+variable          t2 equal 0.72
+
+# Create the simulation box.
+
+#region            box      block 0 $(v_box_size) 0 $(v_box_size) 0 $(v_box_size) units box
+#create_box        2 box
+
+# Create a high-density fcc lattice of atoms.
+
+#lattice           fcc 1.0
+#create_atoms      1 region box
+
+# Define two regions: one for particle and one for the fluid. Also define groups.
+
+region            hot block $(v_box_size/2-v_radiush/2) $(v_box_size/2+v_radiush/2) $(v_box_size/2-v_radiush/2) $(v_box_size/2+v_radiush/2) $(v_box_size/2-v_radiush/2) $(v_box_size/2+v_radiush/2) units box
+region            hot block 25.510224195268598635 $(v_box_size/2+v_radiush/2) $(v_box_size/2-v_radiush/2) $(v_box_size/2+v_radiush/2) $(v_box_size/2-v_radiush/2) $(v_box_size/2+v_radiush/2) units box
+region            hot block 25.510224195268598635 47.510224195268598635 $(v_box_size/2-v_radiush/2) $(v_box_size/2+v_radiush/2) $(v_box_size/2-v_radiush/2) $(v_box_size/2+v_radiush/2) units box
+region            hot block 25.510224195268598635 47.510224195268598635 25.510224195268598635 $(v_box_size/2+v_radiush/2) $(v_box_size/2-v_radiush/2) $(v_box_size/2+v_radiush/2) units box
+region            hot block 25.510224195268598635 47.510224195268598635 25.510224195268598635 47.510224195268598635 $(v_box_size/2-v_radiush/2) $(v_box_size/2+v_radiush/2) units box
+region            hot block 25.510224195268598635 47.510224195268598635 25.510224195268598635 47.510224195268598635 25.510224195268598635 $(v_box_size/2+v_radiush/2) units box
+region            hot block 25.510224195268598635 47.510224195268598635 25.510224195268598635 47.510224195268598635 25.510224195268598635 47.510224195268598635 units box
+region            cold block $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) units box side out
+region            cold block 16.510224195268598635 $(v_box_size/2+v_radiusc/2) $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) units box side out
+region            cold block 16.510224195268598635 56.510224195268598635 $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) units box side out
+region            cold block 16.510224195268598635 56.510224195268598635 16.510224195268598635 $(v_box_size/2+v_radiusc/2) $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) units box side out
+region            cold block 16.510224195268598635 56.510224195268598635 16.510224195268598635 56.510224195268598635 $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) units box side out
+region            cold block 16.510224195268598635 56.510224195268598635 16.510224195268598635 56.510224195268598635 16.510224195268598635 $(v_box_size/2+v_radiusc/2) units box side out
+region            cold block 16.510224195268598635 56.510224195268598635 16.510224195268598635 56.510224195268598635 16.510224195268598635 56.510224195268598635 units box side out
+
+#group             particle region particle
+#group             fluid subtract all particle
+
+# We will adjust the density of the fluid to 0.8 by randomly deleting some of the atoms.
+
+#delete_atoms      porosity fluid 0.2 $(v_rand1)
+
+# Change the atom type of the particle atoms.
+
+#set               group particles type 2
+#set               group fluid type 1
+# Define the masses.
+
+mass              1     1.0
+mass              2     1.0
+
+# Create initial velocities.
+
+velocity          all create 0.9 $(v_rand2)
+velocity          all create 0.9 4628
+
+# Define the force-field.
+
+pair_style        lj/cut 2.5
+pair_coeff        1 1    1.0    1.0
+pair_coeff        1 2    0.79   1.0
+pair_coeff        2 2    10.0   1.0
+
+# These are the fixes that define the simulation.
+# We will first run in NVT to equilibrate the temperature.
+# Removing angular momentum of the particle keeps it in the centre of the simulation box.
+# We will also remove the linear momentum of the whole system.
+
+fix               1 all nvt temp 0.9 0.9 0.5
+Resetting global fix info from restart file:
+  fix style: nvt, fix ID: 1
+fix               2 particle momentum 1 angular linear 1 1 1
+fix               3 all momentum 1 linear 1 1 1
+
+# This is how you can define some variables.
+# Check the density of the fluid.
+
+variable          volume_fluid   equal vol-v_radius^3
+variable          density_fluid  equal count(fluid)/v_volume_fluid
+
+# By defining thermo_style, you can customize the output of the log file,
+# and call some of the variables you have previously defined.
+
+thermo_style      custom step temp epair etotal press v_density_fluid
+thermo_modify     norm no
+thermo            100
+
+# This is how you can define a file for the trajectory, which you can visualize
+# in VMD, Ovito, PyMol.
+
+# Define some of the parameters of the simulation before the run.
+
+timestep          0.0025
+neighbor          0.3 bin
+neigh_modify      delay 0 every 1 check yes
+dump              1 all custom 50000 md.lammpstrj2 id type x y z #v_T
+run               $(v_run1)
+run               100
+All restart file global fix info was re-assigned
+Neighbor list info ...
+  update every 1 steps, delay 0 steps, check yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 2.8
+  ghost atom cutoff = 2.8
+  binsize = 1.4, bins = 53 53 53
+  1 neighbor lists, perpetual/occasional/extra = 1 0 0
+  (1) pair lj/cut, perpetual
+      attributes: half, newton on
+      pair build: half/bin/atomonly/newton
+      stencil: half/bin/3d/newton
+      bin: standard
+Per MPI rank memory allocation (min/avg/max) = 14.75 | 15.12 | 15.61 Mbytes
+Step Temp E_pair TotEng Press v_density_fluid 
+       0          0.9   -3145838.4   -2721058.2   -2.7649241   0.79803533 
+     100   0.48777098   -2987709.1   -2757491.9  -0.10460753   0.79803533 
+Loop time of 3.16442 on 12 procs for 100 steps with 314653 atoms
+
+Performance: 6825.896 tau/day, 31.601 timesteps/s
+99.9% CPU use with 12 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 1.5273     | 1.7854     | 2.0604     |  14.4 | 56.42
+Neigh   | 0.20344    | 0.23722    | 0.27558    |   4.9 |  7.50
+Comm    | 0.57371    | 0.87737    | 1.1673     |  22.8 | 27.73
+Output  | 0.0002023  | 0.00025398 | 0.0002754  |   0.0 |  0.01
+Modify  | 0.18863    | 0.19929    | 0.20836    |   1.5 |  6.30
+Other   |            | 0.0649     |            |       |  2.05
+
+Nlocal:    26221.1 ave 27112 max 25695 min
+Histogram: 6 2 0 0 0 0 0 0 0 4
+Nghost:    16698.2 ave 17045 max 16039 min
+Histogram: 2 2 0 0 0 0 0 0 3 5
+Neighs:    923796 ave 976788 max 892142 min
+Histogram: 3 5 0 0 0 0 0 0 0 4
+
+Total # of neighbors = 11085554
+Ave neighs/atom = 35.231
+Neighbor list builds = 5
+Dangerous builds = 0
+
+#dump		  1 all custom 5 md.lammpstrj2 id type x y z #v_T
+
+unfix 1 # remove the T* = 0.9 thermostat
+### part 2 thermostat
+fix		  1 all nve
+
+# create the hot thermostat
+# region hot	sphere $(lx/2) $(ly/2) $(lz/2) v_radius units box
+# region cold sphere $(lx/2) $(ly/2) $(lz/2) v_radiusc units box side out
+
+compute           hot_temp     all temp/region hot
+compute           cold_temp    all temp/region cold
+
+# We will use a simple velocity rescaling to fix the temperature in the thermostatting regions.
+
+fix               hot_rescale  all temp/rescale 1 ${t1} ${t1} 0.001 1.0
+fix               hot_rescale  all temp/rescale 1 0.92 ${t1} 0.001 1.0
+fix               hot_rescale  all temp/rescale 1 0.92 0.92 0.001 1.0
+fix               cold_rescale all temp/rescale 1 ${t2} ${t2} 0.001 1.0
+fix               cold_rescale all temp/rescale 1 0.72 ${t2} 0.001 1.0
+fix               cold_rescale all temp/rescale 1 0.72 0.72 0.001 1.0
+
+fix_modify        hot_rescale  temp hot_temp
+fix_modify        cold_rescale temp cold_temp
+
+# By calling the computes in thermo_style, you can keep track of the temperature in the regions.
+# Calling the fixes gives you the energy exchanged in the thermostats, which will be useful to know
+# the heat flux in the system.
+
+thermo_style  custom step temp epair etotal press c_hot_temp c_cold_temp f_hot_rescale f_cold_rescale
+WARNING: New thermo_style command, previous thermo_modify settings will be lost (../output.cpp:708)
+thermo_modify  norm no
+
+run  $(v_run2)
+run  5
+Per MPI rank memory allocation (min/avg/max) = 15.18 | 15.27 | 15.61 Mbytes
+Step Temp E_pair TotEng Press c_hot_temp c_cold_temp f_hot_rescale f_cold_rescale 
+     100   0.48777098   -2987709.1   -2757491.9  -0.10460753   0.85461653     0.465152            0            0 
+     105   0.70004103   -2986266.8   -2655862.9  0.092415138         0.92         0.72   -977.55676   -101138.28 
+Loop time of 0.162834 on 12 procs for 5 steps with 314653 atoms
+
+Performance: 6632.522 tau/day, 30.706 timesteps/s
+104.8% CPU use with 12 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.076307   | 0.095763   | 0.13755    |   7.7 | 58.81
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.0032331  | 0.045134   | 0.064663   |  11.2 | 27.72
+Output  | 0.0009017  | 0.0011872  | 0.0013125  |   0.5 |  0.73
+Modify  | 0.016386   | 0.017274   | 0.019083   |   0.8 | 10.61
+Other   |            | 0.003475   |            |       |  2.13
+
+Nlocal:    26221.1 ave 27092 max 25703 min
+Histogram: 6 2 0 0 0 0 0 0 0 4
+Nghost:    16699.3 ave 17042 max 16041 min
+Histogram: 2 2 0 0 0 0 0 0 3 5
+Neighs:    924501 ave 976538 max 892945 min
+Histogram: 3 5 0 0 0 0 0 0 0 4
+
+Total # of neighbors = 11094016
+Ave neighs/atom = 35.2579
+Neighbor list builds = 0
+Dangerous builds = 0
+reset_timestep  0
+
+unfix             hot_rescale
+unfix             cold_rescale
+
+fix               hot_rescale  all temp/rescale 1 ${t1} ${t1} 0.001 1.0
+fix               hot_rescale  all temp/rescale 1 0.92 ${t1} 0.001 1.0
+fix               hot_rescale  all temp/rescale 1 0.92 0.92 0.001 1.0
+fix               cold_rescale all temp/rescale 1 ${t2} ${t2} 0.001 1.0
+fix               cold_rescale all temp/rescale 1 0.72 ${t2} 0.001 1.0
+fix               cold_rescale all temp/rescale 1 0.72 0.72 0.001 1.0
+
+fix_modify        hot_rescale  temp hot_temp
+fix_modify        cold_rescale temp cold_temp
+
+fix_modify  hot_rescale  temp hot_temp # this is actually the thermostat, modified for the region
+fix_modify  cold_rescale temp cold_temp
+
+### Heat Flux
+# STEP 1: get the kinetic energy, potential energy, and stress tensor
+compute myke all ke/atom
+compute mype all pe/atom
+compute s all stress/atom NULL virial
+
+# STEP 2: Multiply the KE, PE and stress tensor matrix with velocity
+variable kevx atom c_myke*vx
+variable pevx atom c_mype*vx
+variable svx atom -(c_s[1]*vx+c_s[4]*vy+c_s[5]*vz)
+
+variable kevy atom c_myke*vy
+variable pevy atom c_mype*vy
+variable svy atom -(c_s[2]*vy+c_s[4]*vx+c_s[6]*vz)
+
+variable kevz atom c_myke*vz
+variable pevz atom c_mype*vz
+variable svz atom -(c_s[3]*vz+c_s[6]*vy+c_s[5]*vx)
+
+# Step 3: RADIAL Heat Flux from dot product with x,y Vector relative to center
+variable          vx atom x
+variable          vy atom y
+variable          vz atom z
+variable          vr atom sqrt((v_vx)^2+(v_vy)^2+(v_vz)^2)
+
+
+
+variable          vecx atom v_vx/v_vr
+variable          vecy atom v_vy/v_vr
+variable          vecz atom v_vz/v_vr
+
+variable          xflux atom v_kevx+v_pevx+v_svx # RECTANGULAR Flux
+variable          yflux atom v_kevy+v_pevy+v_svy
+variable          zflux atom v_kevz+v_pevz+v_svz
+
+variable          kevr atom v_kevx*v_vecx+v_kevy*v_vecy+v_kevz*v_vecz
+variable          pevr atom v_pevx*v_vecx+v_pevy*v_vecy+v_pevz*v_vecz
+variable          svr atom v_svx*v_vecx+v_svy*v_vecy+v_svz*v_vecz
+variable          rflux atom v_kevr+v_pevr+v_svr
+
+variable T atom c_myke/1.5
+
+### Voronoi
+compute voronoi particle voronoi/atom surface fluid
+###
+
+# We will define "chunks", which are groups of atoms, in this case belonging to spherical shells.
+# using ave/chunk, we can get the temeprature of the groups of atoms and save it in a file.
+
+variable          deltax  equal (4^(1/3))/4
+
+compute   gridf fluid chunk/atom bin/3d z lower $(v_deltax) y lower $(v_deltax) x lower $(v_deltax) units box discard yes bound x $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) bound y $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) bound z $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2)
+compute   gridf fluid chunk/atom bin/3d z lower 0.39685026299205000688 y lower $(v_deltax) x lower $(v_deltax) units box discard yes bound x $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) bound y $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) bound z $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2)
+compute   gridf fluid chunk/atom bin/3d z lower 0.39685026299205000688 y lower 0.39685026299205000688 x lower $(v_deltax) units box discard yes bound x $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) bound y $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) bound z $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2)
+compute   gridf fluid chunk/atom bin/3d z lower 0.39685026299205000688 y lower 0.39685026299205000688 x lower 0.39685026299205000688 units box discard yes bound x $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) bound y $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) bound z $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2)
+compute   gridf fluid chunk/atom bin/3d z lower 0.39685026299205000688 y lower 0.39685026299205000688 x lower 0.39685026299205000688 units box discard yes bound x 16.510224195268598635 $(v_box_size/2+v_radiusc/2) bound y $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) bound z $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2)
+compute   gridf fluid chunk/atom bin/3d z lower 0.39685026299205000688 y lower 0.39685026299205000688 x lower 0.39685026299205000688 units box discard yes bound x 16.510224195268598635 56.510224195268598635 bound y $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) bound z $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2)
+compute   gridf fluid chunk/atom bin/3d z lower 0.39685026299205000688 y lower 0.39685026299205000688 x lower 0.39685026299205000688 units box discard yes bound x 16.510224195268598635 56.510224195268598635 bound y 16.510224195268598635 $(v_box_size/2+v_radiusc/2) bound z $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2)
+compute   gridf fluid chunk/atom bin/3d z lower 0.39685026299205000688 y lower 0.39685026299205000688 x lower 0.39685026299205000688 units box discard yes bound x 16.510224195268598635 56.510224195268598635 bound y 16.510224195268598635 56.510224195268598635 bound z $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2)
+compute   gridf fluid chunk/atom bin/3d z lower 0.39685026299205000688 y lower 0.39685026299205000688 x lower 0.39685026299205000688 units box discard yes bound x 16.510224195268598635 56.510224195268598635 bound y 16.510224195268598635 56.510224195268598635 bound z 16.510224195268598635 $(v_box_size/2+v_radiusc/2)
+compute   gridf fluid chunk/atom bin/3d z lower 0.39685026299205000688 y lower 0.39685026299205000688 x lower 0.39685026299205000688 units box discard yes bound x 16.510224195268598635 56.510224195268598635 bound y 16.510224195268598635 56.510224195268598635 bound z 16.510224195268598635 56.510224195268598635
+
+#fix		  pgridf fluid ave/chunk 1 $(v_run3) $(v_run3) gridf temp density/number v_vx v_vy v_vz file profile_grid_cool_fluid.dat$(v_job)
+
+fix atm particle ave/atom 1 $(v_run3) $(v_run3) x y z v_T c_voronoi[1] c_voronoi[2]  c_voronoi[3]
+fix atm particle ave/atom 1 5 $(v_run3) x y z v_T c_voronoi[1] c_voronoi[2]  c_voronoi[3]
+fix atm particle ave/atom 1 5 5 x y z v_T c_voronoi[1] c_voronoi[2]  c_voronoi[3]
+dump atm_dump particle custom $(v_run3) particle_voronoi_traj.traj$(v_job) id f_atm[1] f_atm[2] f_atm[3] f_atm[4] f_atm[5] f_atm[6] f_atm[7]
+dump atm_dump particle custom 5 particle_voronoi_traj.traj$(v_job) id f_atm[1] f_atm[2] f_atm[3] f_atm[4] f_atm[5] f_atm[6] f_atm[7]
+dump atm_dump particle custom 5 particle_voronoi_traj.traj0 id f_atm[1] f_atm[2] f_atm[3] f_atm[4] f_atm[5] f_atm[6] f_atm[7]
+#dump		  2 all custom 5000 md.lammpstrj_cuboctahedral$(v_job) id type x y z
+
+run		  $(v_run3)
+run		  5
+Per MPI rank memory allocation (min/avg/max) = 46.41 | 46.49 | 46.82 Mbytes
+Step Temp E_pair TotEng Press c_hot_temp c_cold_temp f_hot_rescale f_cold_rescale 
+       0   0.70004103   -2986266.8   -2655862.9  0.092415138         0.92         0.72            0            0 
+       5   0.69992183   -2977791.6   -2647443.8   0.21546623         0.92         0.72    6.6700479   -8903.6665 
+Loop time of 5.18867 on 12 procs for 5 steps with 314653 atoms
+
+Performance: 208.146 tau/day, 0.964 timesteps/s
+99.8% CPU use with 12 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 0.095495   | 0.12031    | 0.1576     |   5.2 |  2.32
+Neigh   | 0          | 0          | 0          |   0.0 |  0.00
+Comm    | 0.021042   | 0.058407   | 0.083297   |   7.5 |  1.13
+Output  | 0.018405   | 0.21933    | 0.34027    |  19.9 |  4.23
+Modify  | 3.6709     | 4.0088     | 4.6172     |  13.1 | 77.26
+Other   |            | 0.7818     |            |       | 15.07
+
+Nlocal:    26221.1 ave 27100 max 25709 min
+Histogram: 6 2 0 0 0 0 0 0 0 4
+Nghost:    16692.7 ave 17033 max 16037 min
+Histogram: 2 1 1 0 0 0 0 0 3 5
+Neighs:    925562 ave 977293 max 894319 min
+Histogram: 3 5 0 0 0 0 0 0 0 4
+
+Total # of neighbors = 11106740
+Ave neighs/atom = 35.2984
+Neighbor list builds = 0
+Dangerous builds = 0
+
+
+
+
+Total wall time: 0:00:09

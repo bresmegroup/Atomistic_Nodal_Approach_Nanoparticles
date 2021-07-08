@@ -1,0 +1,210 @@
+# Nanoparticle in a thermal gradient.
+read_restart restart.initial
+# Define some variables for the simulation.
+
+#units             lj
+#atom_style        atomic
+#dimension         3
+
+# Define some variables for the simulation.
+
+variable      radius    equal 26
+variable box_size equal 4^(1/3)*(20+v_radius)
+variable radiush equal v_radius-4
+variable radiusc equal v_radius+14
+
+variable          rand1    equal 22101
+variable          rand2    equal 4628
+variable          job    equal 0
+
+variable run1      equal 100000
+variable run2      equal 50000
+variable run3      equal 50000
+
+# Define the two temperatures in the system.
+
+variable          t1 equal 0.92
+variable          t2 equal 0.72
+
+# Create the simulation box.
+
+#region            box      block 0 $(v_box_size) 0 $(v_box_size) 0 $(v_box_size) units box
+#create_box        2 box
+
+# Create a high-density fcc lattice of atoms.
+
+#lattice           fcc 1.0
+#create_atoms      1 region box
+
+# Define two regions: one for particle and one for the fluid. Also define groups.
+
+region            hot block $(v_box_size/2-v_radiush/2) $(v_box_size/2+v_radiush/2) $(v_box_size/2-v_radiush/2) $(v_box_size/2+v_radiush/2) $(v_box_size/2-v_radiush/2) $(v_box_size/2+v_radiush/2) units box
+region            cold block $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) units box side out
+
+#group             particle region particle
+#group             fluid subtract all particle
+
+# We will adjust the density of the fluid to 0.8 by randomly deleting some of the atoms.
+
+#delete_atoms      porosity fluid 0.2 $(v_rand1)
+
+# Change the atom type of the particle atoms.
+
+#set               group particles type 2
+#set               group fluid type 1
+# Define the masses.
+
+mass              1     1.0
+mass              2     1.0
+
+# Create initial velocities.
+
+velocity          all create 0.9 $(v_rand2)
+
+# Define the force-field.
+
+pair_style        lj/cut 2.5
+pair_coeff        1 1    1.0    1.0
+pair_coeff        1 2    0.79   1.0
+pair_coeff        2 2    10.0   1.0
+
+# These are the fixes that define the simulation.
+# We will first run in NVT to equilibrate the temperature.
+# Removing angular momentum of the particle keeps it in the centre of the simulation box.
+# We will also remove the linear momentum of the whole system.
+
+fix               1 all nvt temp 0.9 0.9 0.5
+fix               2 particle momentum 1 angular linear 1 1 1
+fix               3 all momentum 1 linear 1 1 1
+
+# This is how you can define some variables.
+# Check the density of the fluid.
+
+variable          volume_fluid   equal vol-v_radius^3
+variable          density_fluid  equal count(fluid)/v_volume_fluid
+
+# By defining thermo_style, you can customize the output of the log file,
+# and call some of the variables you have previously defined.
+
+thermo_style      custom step temp epair etotal press v_density_fluid
+thermo_modify     norm no
+thermo            100
+
+# This is how you can define a file for the trajectory, which you can visualize
+# in VMD, Ovito, PyMol.
+
+# Define some of the parameters of the simulation before the run.
+
+timestep          0.0025
+neighbor          0.3 bin
+neigh_modify      delay 0 every 1 check yes
+dump              1 all custom 50000 md.lammpstrj2 id type x y z #v_T
+run               $(v_run1)
+
+#dump		  1 all custom 5 md.lammpstrj2 id type x y z #v_T
+
+unfix 1 # remove the T* = 0.9 thermostat
+### part 2 thermostat
+fix		  1 all nve
+
+# create the hot thermostat
+# region hot	sphere $(lx/2) $(ly/2) $(lz/2) v_radius units box
+# region cold sphere $(lx/2) $(ly/2) $(lz/2) v_radiusc units box side out
+
+compute           hot_temp     all temp/region hot
+compute           cold_temp    all temp/region cold
+
+# We will use a simple velocity rescaling to fix the temperature in the thermostatting regions.
+
+fix               hot_rescale  all temp/rescale 1 ${t1} ${t1} 0.001 1.0
+fix               cold_rescale all temp/rescale 1 ${t2} ${t2} 0.001 1.0
+
+fix_modify        hot_rescale  temp hot_temp
+fix_modify        cold_rescale temp cold_temp
+
+# By calling the computes in thermo_style, you can keep track of the temperature in the regions.
+# Calling the fixes gives you the energy exchanged in the thermostats, which will be useful to know
+# the heat flux in the system.
+
+thermo_style  custom step temp epair etotal press c_hot_temp c_cold_temp f_hot_rescale f_cold_rescale
+thermo_modify  norm no
+
+run  $(v_run2)
+reset_timestep  0
+
+unfix             hot_rescale
+unfix             cold_rescale
+
+fix               hot_rescale  all temp/rescale 1 ${t1} ${t1} 0.001 1.0
+fix               cold_rescale all temp/rescale 1 ${t2} ${t2} 0.001 1.0
+
+fix_modify        hot_rescale  temp hot_temp
+fix_modify        cold_rescale temp cold_temp
+
+fix_modify  hot_rescale  temp hot_temp # this is actually the thermostat, modified for the region
+fix_modify  cold_rescale temp cold_temp
+
+### Heat Flux
+# STEP 1: get the kinetic energy, potential energy, and stress tensor
+compute myke all ke/atom
+compute mype all pe/atom
+compute s all stress/atom NULL virial
+
+# STEP 2: Multiply the KE, PE and stress tensor matrix with velocity
+variable kevx atom c_myke*vx
+variable pevx atom c_mype*vx
+variable svx atom -(c_s[1]*vx+c_s[4]*vy+c_s[5]*vz)
+
+variable kevy atom c_myke*vy
+variable pevy atom c_mype*vy
+variable svy atom -(c_s[2]*vy+c_s[4]*vx+c_s[6]*vz)
+
+variable kevz atom c_myke*vz
+variable pevz atom c_mype*vz
+variable svz atom -(c_s[3]*vz+c_s[6]*vy+c_s[5]*vx)
+
+# Step 3: RADIAL Heat Flux from dot product with x,y Vector relative to center
+variable          vx atom x
+variable          vy atom y
+variable          vz atom z
+variable          vr atom sqrt((v_vx)^2+(v_vy)^2+(v_vz)^2)
+
+
+
+variable          vecx atom v_vx/v_vr
+variable          vecy atom v_vy/v_vr
+variable          vecz atom v_vz/v_vr
+
+variable          xflux atom v_kevx+v_pevx+v_svx # RECTANGULAR Flux
+variable          yflux atom v_kevy+v_pevy+v_svy
+variable          zflux atom v_kevz+v_pevz+v_svz
+
+variable          kevr atom v_kevx*v_vecx+v_kevy*v_vecy+v_kevz*v_vecz
+variable          pevr atom v_pevx*v_vecx+v_pevy*v_vecy+v_pevz*v_vecz
+variable          svr atom v_svx*v_vecx+v_svy*v_vecy+v_svz*v_vecz
+variable          rflux atom v_kevr+v_pevr+v_svr
+
+variable T atom c_myke/1.5
+
+### Voronoi
+compute voronoi particle voronoi/atom surface fluid
+###
+
+# We will define "chunks", which are groups of atoms, in this case belonging to spherical shells.
+# using ave/chunk, we can get the temeprature of the groups of atoms and save it in a file.
+
+variable          deltax  equal (4^(1/3))/4
+
+compute   gridf fluid chunk/atom bin/3d z lower $(v_deltax) y lower $(v_deltax) x lower $(v_deltax) units box discard yes bound x $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) bound y $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2) bound z $(v_box_size/2-v_radiusc/2) $(v_box_size/2+v_radiusc/2)
+
+#fix		  pgridf fluid ave/chunk 1 $(v_run3) $(v_run3) gridf temp density/number v_vx v_vy v_vz file profile_grid_cool_fluid.dat$(v_job)
+
+fix atm particle ave/atom 1 $(v_run3) $(v_run3) x y z v_T c_voronoi[1] c_voronoi[2]  c_voronoi[3]
+dump atm_dump particle custom $(v_run3) particle_voronoi_traj.traj$(v_job) id f_atm[1] f_atm[2] f_atm[3] f_atm[4] f_atm[5] f_atm[6] f_atm[7]
+#dump		  2 all custom 5000 md.lammpstrj_cuboctahedral$(v_job) id type x y z
+
+run		  $(v_run3)
+
+
+
+
