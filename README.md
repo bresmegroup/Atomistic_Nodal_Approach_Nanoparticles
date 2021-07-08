@@ -29,3 +29,5 @@ To find the thermal conductance of a NP, 2 quantities are needed: Interfacial he
 2) Temperature Discontinutiy
 - The Temperature discontinuity can be obtained from constructing a C-KD tree for rapid querying of fluid grid information within a radius of interest (normally 1st peak in g(r)). This is done using [cdktree_dT_discontinuity.py](https://github.com/PanoptoSalad/Atomistic_Nodal_Approach_Conductance/blob/main/data_processing/cdktree_dT_discontinuity.py)
 
+# Copyright and Terms of Use
+This code and workflow can be used for strictly non-commercial purposes only. When using this code, do cite this Github page in the references section.
