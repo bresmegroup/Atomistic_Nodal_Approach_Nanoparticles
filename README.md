@@ -1,4 +1,4 @@
-# Atomistic Nodal Approach for Obtaining Conductance
+# Atomistic Nodal Approach for Obtaining Thermal Conductance
 Python Code for Processing LAMMPS Data generated for two data types: LAMMPS trajectory file and LAMMPS dump files. Subsequently, the code involves post-processing of the data to give interfacial heat flux, temperature discontinuity and ultimately interfacial conductance using the atomistic nodal approach.
 
 ![3_janus_rods](https://user-images.githubusercontent.com/40763563/123518175-493d5100-d6d7-11eb-834b-f228ee0ac928.jpg)
